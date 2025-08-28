@@ -85,21 +85,6 @@ body {
   background-color: #f44336;
   color: white;
 }
-
-/* 不可见的文本域样式 - 确保完全不可见但仍可操作 */
-.hidden-textarea {
-  position: absolute;
-  left: -9999px;
-  top: -9999px;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: 0;
-  border: none;
-  outline: none;
-  background: transparent;
-  resize: none;
-}
 </style>
 </head>
 <body>
@@ -114,9 +99,6 @@ body {
   <button id="button-1" class="button"></button>
   <button id="button-2" class="button"></button>
 </div>
-
-<!-- 预先创建不可见的文本域，用于复制操作 -->
-<textarea class="hidden-textarea" id="copyTextarea"></textarea>
 
 <script>
 // 使用URLSearchParams解析参数
@@ -133,8 +115,8 @@ function getUrlParams() {
   return params;
 }
 
-// 基于不可见文本域的复制方法
-function copyToClipboard(text) {
+// 使用现代Clipboard API的复制方法
+async function copyToClipboard(text) {
   // 验证文本是否存在
   const cleanText = text || '';
   if (!cleanText) {
@@ -142,32 +124,36 @@ function copyToClipboard(text) {
     return;
   }
 
-  // 获取预先创建的不可见文本域
-  const textarea = document.getElementById('copyTextarea');
-  
-  // 设置文本域内容
-  textarea.value = cleanText;
-  
   try {
-    // 选中文本域内容
-    textarea.focus();
-    textarea.select();
-    textarea.setSelectionRange(0, textarea.value.length); // 适配移动设备
+    // 尝试使用现代Clipboard API
+    await navigator.clipboard.writeText(cleanText);
+    showNotification('已复制到剪贴板!', 'success');
+  } catch (err) {
+    console.error('Clipboard API 不可用，使用降级方案:', err);
     
-    // 执行复制命令
-    const successful = document.execCommand('copy');
+    // 降级方案：使用textarea方法
+    const textArea = document.createElement('textarea');
+    textArea.value = cleanText;
+    textArea.style.position = 'fixed';
+    textArea.style.top = 0;
+    textArea.style.left = 0;
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
     
-    if (successful) {
-      showNotification('已复制到剪贴板!', 'success');
-    } else {
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        showNotification('已复制到剪贴板!', 'success');
+      } else {
+        showNotification('复制失败，请手动复制', 'error');
+      }
+    } catch (err) {
+      console.error('降级复制方法也失败了:', err);
       showNotification('复制失败，请手动复制', 'error');
     }
-  } catch (err) {
-    console.error('复制操作失败:', err);
-    showNotification('复制失败，请手动复制', 'error');
-  } finally {
-    textarea.blur();
-    document.getSelection().removeAllRanges();
+    
+    document.body.removeChild(textArea);
   }
 }
 
@@ -228,4 +214,3 @@ window.addEventListener('load', init);
 </script>
 </body>
 </html>
-    
