@@ -1,81 +1,231 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <title>BML表情面板</title>
+<meta charset="utf-8" />
+<style type="text/css">
+body {
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.wrapper {
+  display: flex;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.button {
+  height: 100%;
+  width: 50%;
+  border: none;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.button:hover {
+  transform: scale(1.02);
+}
+
+.button:active {
+  transform: scale(0.98);
+}
+
+/* 加载状态样式 */
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-family: Arial, sans-serif;
+  color: #666;
+}
+
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  animation: spin 1s linear infinite;
+  margin-right: 10px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.notification {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 20px 40px;
+  border-radius: 8px;
+  z-index: 1000;
+  font-size: 2rem;
+  font-weight: bold;
+  text-align: center;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.success {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.error {
+  background-color: #f44336;
+  color: white;
+}
+
+/* 不可见的文本域样式 - 确保完全不可见但仍可操作 */
+.hidden-textarea {
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  resize: none;
+}
+</style>
 </head>
 <body>
-    <!-- 按钮和图片区域会通过JS动态生成 -->
+<!-- 加载状态 -->
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <div>加载中...</div>
+</div>
+
+<!-- 按钮容器 -->
+<div class="wrapper" id="buttonContainer" style="display: none;">
+  <button id="button-1" class="button"></button>
+  <button id="button-2" class="button"></button>
+</div>
+
+<!-- 预先创建不可见的文本域，用于复制操作 -->
+<textarea class="hidden-textarea" id="copyTextarea"></textarea>
+
+<script>
+// 使用URLSearchParams解析参数
+function getUrlParams() {
+  const params = {};
+  try {
+    const searchParams = new URLSearchParams(window.location.search);
+    for (const [key, value] of searchParams.entries()) {
+      params[key] = decodeURIComponent(value);
+    }
+  } catch (e) {
+    console.error('解析URL参数失败:', e);
+  }
+  return params;
+}
+
+// 基于不可见文本域的复制方法
+function copyToClipboard(text) {
+  // 验证文本是否存在
+  const cleanText = text || '';
+  if (!cleanText) {
+    showNotification('没有可复制的内容', 'error');
+    return;
+  }
+
+  // 获取预先创建的不可见文本域
+  const textarea = document.getElementById('copyTextarea');
+  
+  // 设置文本域内容
+  textarea.value = cleanText;
+  
+  try {
+    // 选中文本域内容
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length); // 适配移动设备
     
-    <script>
-        // 解析URL参数
-        function getQueryParams() {
-            const params = {};
-            const queryString = window.location.search.slice(1);
-            const pairs = queryString.split('&');
-            
-            pairs.forEach(pair => {
-                if (pair) {
-                    const [key, value] = pair.split('=');
-                    // 解码参数值，处理特殊字符
-                    params[key] = decodeURIComponent(value || '');
-                }
-            });
-            return params;
-        }
+    // 执行复制命令
+    const successful = document.execCommand('copy');
+    
+    if (successful) {
+      showNotification('已复制到剪贴板!', 'success');
+    } else {
+      showNotification('复制失败，请手动复制', 'error');
+    }
+  } catch (err) {
+    console.error('复制操作失败:', err);
+    showNotification('复制失败，请手动复制', 'error');
+  } finally {
+    textarea.blur();
+    document.getSelection().removeAllRanges();
+  }
+}
 
-        // 复制到剪贴板函数
-        function copyToClipboard(text) {
-            const tempInput = document.createElement('input');
-            // 隐藏临时输入框
-            tempInput.style = 'position: absolute; left: -1000px; top: -1000px';
-            tempInput.value = text;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            try {
-                // 执行复制命令
-                const successful = document.execCommand('copy');
-                if (successful) {
-                    console.log('复制成功');
-                }
-            } catch (err) {
-                console.error('复制失败:', err);
-            }
-            document.body.removeChild(tempInput);
-        }
+function showNotification(message, type = 'success') {
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.textContent = message;
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.style.opacity = '1';
+  }, 10);
+  
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    setTimeout(() => document.body.removeChild(notification), 300);
+  }, 3000);
+}
 
-        // 初始化页面
-        function init() {
-            const params = getQueryParams();
-            const container = document.createElement('div');
-            
-            // 动态创建按钮和图片
-            let i = 1;
-            while (params[`btn-${i}`]) {
-                const button = document.createElement('button');
-                const img = document.createElement('img');
-                img.src = params[`btn-${i}`];
-                img.style.maxWidth = '100px';
-                img.style.maxHeight = '100px';
-                
-                button.appendChild(img);
-                button.id = `button-${i}`;
-                
-                // 绑定复制事件
-                const copyText = params[`fuzhi-${i}`] || '';
-                button.addEventListener('click', () => {
-                    copyToClipboard(copyText);
-                });
-                
-                container.appendChild(button);
-                i++;
-            }
-            
-            document.body.appendChild(container);
-        }
+function init() {
+  const params = getUrlParams();
+  const button1 = document.getElementById('button-1');
+  const button2 = document.getElementById('button-2');
+  const loading = document.getElementById('loading');
+  const buttonContainer = document.getElementById('buttonContainer');
+  
+  console.log('URL参数:', params);
+  
+  if (params['btn-1']) {
+    button1.style.backgroundImage = `url('${encodeURI(params['btn-1'])}')`;
+    button1.addEventListener('click', () => {
+      console.log('复制内容:', params['fuzhi-1']);
+      copyToClipboard(params['fuzhi-1']);
+    });
+  } else {
+    button1.style.display = 'none';
+    button2.style.width = '100%';
+  }
+  
+  if (params['btn-2']) {
+    button2.style.backgroundImage = `url('${encodeURI(params['btn-2'])}')`;
+    button2.addEventListener('click', () => {
+      console.log('复制内容:', params['fuzhi-2']);
+      copyToClipboard(params['fuzhi-2']);
+    });
+  } else {
+    button2.style.display = 'none';
+    button1.style.width = '100%';
+  }
+  
+  setTimeout(() => {
+    loading.style.display = 'none';
+    buttonContainer.style.display = 'flex';
+  }, 500);
+}
 
-        // 页面加载完成后初始化
-        window.onload = init;
-    </script>
+window.addEventListener('load', init);
+</script>
 </body>
 </html>
+    
