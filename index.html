@@ -66,16 +66,39 @@ body {
   left: 50%;
   transform: translate(-50%, -50%);
   padding: 20px 40px;
-  background-color: #4CAF50;
-  color: white;
   border-radius: 8px;
   z-index: 1000;
-  font-size: 2rem; /* 放大字体 */
+  font-size: 2rem;
   font-weight: bold;
   text-align: center;
   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
   opacity: 0;
   transition: opacity 0.3s ease;
+}
+
+.success {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.error {
+  background-color: #f44336;
+  color: white;
+}
+
+/* 不可见的文本域样式 - 确保完全不可见但仍可操作 */
+.hidden-textarea {
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  resize: none;
 }
 </style>
 </head>
@@ -92,55 +115,76 @@ body {
   <button id="button-2" class="button"></button>
 </div>
 
+<!-- 预先创建不可见的文本域，用于复制操作 -->
+<textarea class="hidden-textarea" id="copyTextarea"></textarea>
+
 <script>
+// 使用URLSearchParams解析参数
 function getUrlParams() {
   const params = {};
-  const queryString = window.location.search.slice(1);
-  if (!queryString) return params;
-  
-  queryString.split('&').forEach(pair => {
-    const equalsIndex = pair.indexOf('=');
-    if (equalsIndex === -1) return;
-    
-    const key = pair.substring(0, equalsIndex);
-    let value = pair.substring(equalsIndex + 1);
-    
-    try {
-      value = decodeURIComponent(value.replace(/\+/g, ' '));
-    } catch (e) {
-      console.error('参数解码错误:', e);
+  try {
+    const searchParams = new URLSearchParams(window.location.search);
+    for (const [key, value] of searchParams.entries()) {
+      params[key] = decodeURIComponent(value);
     }
-    
-    if (key) {
-      params[key] = value;
-    }
-  });
+  } catch (e) {
+    console.error('解析URL参数失败:', e);
+  }
   return params;
 }
 
+// 基于不可见文本域的复制方法
 function copyToClipboard(text) {
+  // 验证文本是否存在
   const cleanText = text || '';
+  if (!cleanText) {
+    showNotification('没有可复制的内容', 'error');
+    return;
+  }
+
+  // 获取预先创建的不可见文本域
+  const textarea = document.getElementById('copyTextarea');
   
-  navigator.clipboard.writeText(cleanText)
-    .then(() => {
-      const notification = document.createElement('div');
-      notification.className = 'notification';
-      notification.textContent = '已复制到剪贴板!';
-      document.body.appendChild(notification);
-      
-      setTimeout(() => {
-        notification.style.opacity = '1';
-      }, 10);
-      
-      setTimeout(() => {
-        notification.style.opacity = '0';
-        setTimeout(() => document.body.removeChild(notification), 300);
-      }, 3000);
-    })
-    .catch(err => {
-      console.error('复制失败: ', err);
-      alert('复制失败，请手动复制');
-    });
+  // 设置文本域内容
+  textarea.value = cleanText;
+  
+  try {
+    // 选中文本域内容
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length); // 适配移动设备
+    
+    // 执行复制命令
+    const successful = document.execCommand('copy');
+    
+    if (successful) {
+      showNotification('已复制到剪贴板!', 'success');
+    } else {
+      showNotification('复制失败，请手动复制', 'error');
+    }
+  } catch (err) {
+    console.error('复制操作失败:', err);
+    showNotification('复制失败，请手动复制', 'error');
+  } finally {
+    textarea.blur();
+    document.getSelection().removeAllRanges();
+  }
+}
+
+function showNotification(message, type = 'success') {
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.textContent = message;
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.style.opacity = '1';
+  }, 10);
+  
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    setTimeout(() => document.body.removeChild(notification), 300);
+  }, 3000);
 }
 
 function init() {
@@ -150,10 +194,12 @@ function init() {
   const loading = document.getElementById('loading');
   const buttonContainer = document.getElementById('buttonContainer');
   
-  // 设置按钮1
+  console.log('URL参数:', params);
+  
   if (params['btn-1']) {
-    button1.style.backgroundImage = `url('${params['btn-1']}')`;
+    button1.style.backgroundImage = `url('${encodeURI(params['btn-1'])}')`;
     button1.addEventListener('click', () => {
+      console.log('复制内容:', params['fuzhi-1']);
       copyToClipboard(params['fuzhi-1']);
     });
   } else {
@@ -161,10 +207,10 @@ function init() {
     button2.style.width = '100%';
   }
   
-  // 设置按钮2
   if (params['btn-2']) {
-    button2.style.backgroundImage = `url('${params['btn-2']}')`;
+    button2.style.backgroundImage = `url('${encodeURI(params['btn-2'])}')`;
     button2.addEventListener('click', () => {
+      console.log('复制内容:', params['fuzhi-2']);
       copyToClipboard(params['fuzhi-2']);
     });
   } else {
@@ -182,3 +228,4 @@ window.addEventListener('load', init);
 </script>
 </body>
 </html>
+    
